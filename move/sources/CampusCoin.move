@@ -1,4 +1,4 @@
-module 0x1::campus_coin {
+module campus_wallet::campus_coin {
     use std::signer;
     use std::string;
     use aptos_framework::coin;

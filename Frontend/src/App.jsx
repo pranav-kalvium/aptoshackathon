@@ -673,25 +673,38 @@ function AdminApp({ view, setView, token }) {
     if (!amount || amount <= 0) return alert('Invalid amount');
 
     try {
-      // If user has wallet, try to mint on chain
-      if (user.walletAddress) {
-        const payload = {
-          type: "entry_function_payload",
-          function: "0x1::campus_coin::mint",
-          type_arguments: [],
-          arguments: [user.walletAddress, amount]
-        };
-
-        await signAndSubmitTransaction(payload);
-        alert('Points awarded on-chain!');
-      }
-
-      // Also update backend for record keeping
-      await api.admin.awardPoints(token, {
+      // First update backend for record keeping
+      const res = await api.admin.awardPoints(token, {
         userId: user._id,
         points: parseInt(amount),
         description: 'Awarded by Admin'
       });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to award points');
+      }
+
+      // If user has wallet, try to mint on chain
+      if (user.walletAddress) {
+        try {
+          const payload = {
+            data: {
+              function: "0x1::campus_coin::mint",
+              typeArguments: [],
+              functionArguments: [user.walletAddress, amount]
+            }
+          };
+
+          await signAndSubmitTransaction(payload);
+          alert('Points awarded on-chain and in database!');
+        } catch (txError) {
+          console.error('Blockchain transaction failed:', txError);
+          alert('Points awarded in database, but blockchain transaction failed. Please check if the contract is deployed and you have admin permissions.');
+        }
+      } else {
+        alert('Points awarded successfully! (Student has not connected wallet yet)');
+      }
 
       loadUsers();
       loadAnalytics();
@@ -790,7 +803,7 @@ function AdminApp({ view, setView, token }) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map(user => (
+                {users.filter(user => user.role === 'student').map(user => (
                   <tr key={user._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{user.name}</div>
