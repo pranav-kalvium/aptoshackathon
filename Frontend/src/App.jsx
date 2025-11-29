@@ -40,6 +40,14 @@ const api = {
     }),
     getRedemptions: (token) => fetch(`${API_URL}/student/redemptions`, {
       headers: { 'Authorization': `Bearer ${token}` }
+    }),
+    updateWallet: (token, walletAddress) => fetch(`${API_URL}/student/wallet`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ walletAddress })
     })
   },
   admin: {
@@ -61,6 +69,17 @@ const api = {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
       body: formData
+    }),
+    getUsers: (token) => fetch(`${API_URL}/admin/users`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }),
+    awardPoints: (token, data) => fetch(`${API_URL}/admin/award-points`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
     })
   }
 };
@@ -130,6 +149,7 @@ function Navbar({ user, view, setView, onLogout }) {
   const menuItems = user?.role === 'admin'
     ? [
       { id: 'admin-dashboard', label: 'Dashboard', icon: BarChart3 },
+      { id: 'manage-students', label: 'Students', icon: Users },
       { id: 'manage-rewards', label: 'Rewards', icon: Gift },
       { id: 'upload-attendance', label: 'Upload', icon: Upload }
     ]
@@ -224,51 +244,7 @@ function AuthPage({ setToken, setUser, setView }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Aptos Wallet Login
-  const handleAptosLogin = async () => {
-    try {
-      setLoading(true);
-      setError('');
 
-      if (!connected) {
-        // Connect to first available wallet (Petra or Martian)
-        const wallet = wallets?.[0];
-        if (wallet) {
-          await connect(wallet.name);
-        } else {
-          throw new Error('No Aptos wallet found. Please install Petra or Martian wallet.');
-        }
-        return;
-      }
-
-      if (!account) {
-        throw new Error('Please connect your wallet first');
-      }
-
-      // Call backend keyless-login
-      const res = await fetch(`${API_URL}/auth/keyless-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: account.address,
-          email: account.email || `${account.address.slice(0, 10)}@aptos.wallet`,
-          name: account.name || `User ${account.address.slice(0, 8)}`
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      setView(data.user.role === 'admin' ? 'admin-dashboard' : 'student-dashboard');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Regular email/password login
   const handleSubmit = async () => {
@@ -341,32 +317,11 @@ function AuthPage({ setToken, setUser, setView }) {
           </div>
         )}
 
-        {/* Aptos Wallet Login Button */}
-        <button
-          onClick={handleAptosLogin}
-          disabled={loading}
-          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition mb-4 flex items-center justify-center space-x-2 disabled:opacity-50"
-        >
-          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          <span>{connected ? 'Login with Aptos Wallet' : 'Connect Aptos Wallet'}</span>
-        </button>
 
-        {connected && account && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg mb-4 text-xs">
-            Connected: {account.address.slice(0, 6)}...{account.address.slice(-4)}
-          </div>
-        )}
 
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with email</span>
-          </div>
-        </div>
+
+
+
 
         {/* Email/Password Form */}
         <div className="space-y-4">
@@ -434,6 +389,7 @@ function AuthPage({ setToken, setUser, setView }) {
 }
 // Student App
 function StudentApp({ view, setView, token, user }) {
+  const { connect, account, connected, wallets } = useWallet();
   const [balance, setBalance] = useState(0);
   const [ledger, setLedger] = useState([]);
   const [rewards, setRewards] = useState([]);
@@ -485,12 +441,90 @@ function StudentApp({ view, setView, token, user }) {
     }
   };
 
+  const handleConnectWallet = async () => {
+    try {
+      // Filter for wallets that are actually installed in the browser
+      const installedWallets = wallets?.filter(wallet =>
+        wallet.readyState === 'Installed' || wallet.readyState === 'Loadable'
+      ) || [];
+
+      console.log('Available wallets:', wallets);
+      console.log('Installed wallets:', installedWallets);
+
+      if (installedWallets.length > 0) {
+        // Try to connect to the first installed wallet
+        await connect(installedWallets[0].name);
+        // Note: account might not be immediately available here due to async state update
+        // We should probably use a useEffect to watch for 'connected' and 'account' changes to sync with backend
+      } else {
+        // Show a more helpful error message
+        alert('Please install Petra or Martian wallet extension in your browser.\n\nPetra: https://petra.app/\nMartian: https://martianwallet.xyz/');
+      }
+    } catch (err) {
+      console.error('Wallet connection error:', err);
+      alert('Failed to connect wallet: ' + err.message);
+    }
+  };
+
+  // Sync wallet with backend when connected
+  useEffect(() => {
+    if (connected && account?.address) {
+      api.student.updateWallet(token, String(account.address))
+        .catch(err => console.error("Failed to sync wallet", err));
+    }
+  }, [connected, account, token]);
+
   if (view === 'student-dashboard') {
     return (
       <div className="space-y-6">
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white">
-          <h1 className="text-3xl font-bold mb-2">Welcome, {user.name}!</h1>
-          <p className="text-indigo-100 mb-6">Your Campus Wallet Balance</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Welcome, {user.name}!</h1>
+              <p className="text-indigo-100 mb-6">Your Campus Wallet Balance</p>
+            </div>
+            {!connected ? (
+              <div className="space-y-2">
+                <button
+                  onClick={handleConnectWallet}
+                  className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition"
+                >
+                  Connect Wallet
+                </button>
+                {wallets && wallets.filter(w => w.readyState === 'Installed' || w.readyState === 'Loadable').length === 0 && (
+                  <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3 mt-2 max-w-xs">
+                    <p className="text-xs text-yellow-900 font-semibold mb-2">⚠️ No wallet detected</p>
+                    <p className="text-xs text-yellow-800 mb-2">Please install a wallet extension:</p>
+                    <div className="flex gap-2">
+                      <a
+                        href="https://petra.app/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs bg-white text-indigo-600 px-2 py-1 rounded hover:bg-indigo-50 transition"
+                      >
+                        Get Petra
+                      </a>
+                      <a
+                        href="https://martianwallet.xyz/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs bg-white text-purple-600 px-2 py-1 rounded hover:bg-purple-50 transition"
+                      >
+                        Get Martian
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-indigo-500 bg-opacity-50 px-4 py-2 rounded-lg">
+                <p className="text-xs text-indigo-200">Wallet Connected</p>
+                <p className="font-mono text-sm">
+                  {account?.address ? `${String(account.address).slice(0, 6)}...${String(account.address).slice(-4)}` : 'Loading...'}
+                </p>
+              </div>
+            )}
+          </div>
           <div className="flex items-center space-x-4">
             <Award className="w-12 h-12" />
             <span className="text-5xl font-bold">{balance}</span>
@@ -605,7 +639,9 @@ function StudentApp({ view, setView, token, user }) {
 
 // Admin App
 function AdminApp({ view, setView, token }) {
+  const { signAndSubmitTransaction } = useWallet();
   const [analytics, setAnalytics] = useState(null);
+  const [users, setUsers] = useState([]);
   const [rewards, setRewards] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -620,7 +656,50 @@ function AdminApp({ view, setView, token }) {
   useEffect(() => {
     loadAnalytics();
     loadRewards();
+    loadUsers();
   }, []);
+
+  const loadUsers = async () => {
+    try {
+      const res = await api.admin.getUsers(token);
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      console.error("Failed to load users", err);
+    }
+  };
+
+  const handleAwardPoints = async (user, amount) => {
+    if (!amount || amount <= 0) return alert('Invalid amount');
+
+    try {
+      // If user has wallet, try to mint on chain
+      if (user.walletAddress) {
+        const payload = {
+          type: "entry_function_payload",
+          function: "0x1::campus_coin::mint",
+          type_arguments: [],
+          arguments: [user.walletAddress, amount]
+        };
+
+        await signAndSubmitTransaction(payload);
+        alert('Points awarded on-chain!');
+      }
+
+      // Also update backend for record keeping
+      await api.admin.awardPoints(token, {
+        userId: user._id,
+        points: parseInt(amount),
+        description: 'Awarded by Admin'
+      });
+
+      loadUsers();
+      loadAnalytics();
+    } catch (err) {
+      console.error(err);
+      alert('Error awarding points: ' + err.message);
+    }
+  };
 
   const loadAnalytics = async () => {
     const res = await api.admin.getAnalytics(token);
@@ -691,6 +770,59 @@ function AdminApp({ view, setView, token }) {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (view === 'manage-students') {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold text-gray-800">Manage Students</h2>
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wallet</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {users.map(user => (
+                  <tr key={user._id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-gray-900">{user.name}</div>
+                      <div className="text-sm text-gray-500">{user.rollNumber}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-500">
+                      {user.walletAddress ? (
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
+                        </span>
+                      ) : (
+                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full">Not Connected</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => {
+                          const amount = prompt('Enter amount to award:');
+                          if (amount) handleAwardPoints(user, parseInt(amount));
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900 font-medium bg-indigo-50 px-3 py-1 rounded-lg transition hover:bg-indigo-100"
+                      >
+                        Award Points
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     );
   }
