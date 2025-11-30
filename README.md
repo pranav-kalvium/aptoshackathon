@@ -1327,28 +1327,9 @@ Please ensure:
 - Documentation is updated for new features
 
 ---
-
-## 📧 Contact & Support
-
-**Project Maintainer**: Akshat Baranwal  
-**GitHub**: [@Akshatb2006](https://github.com/Akshatb2006)  
-**Repository**: [Aptos-Hackathon](https://github.com/Akshatb2006/Aptos-Hackathon)  
-
-For issues and feature requests, please open an issue on GitHub.
-
----
-
 ## 📝 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **Aptos Foundation** - For blockchain infrastructure
-- **VIT University** - Inspiration for campus use case
-- **Open Source Community** - For amazing libraries and tools
 
 ---
 
