@@ -17,6 +17,7 @@
 ## 📖 Table of Contents
 
 - [Overview](#-overview)
+- [Screenshots](#️-screenshots)
 - [Real-Life Use Cases](#-real-life-use-cases)
 - [High-Level Design](#-high-level-design)
 - [Folder Structure](#-folder-structure)
@@ -56,9 +57,34 @@ Campus Wallet provides:
 - ✅ **Multi-Category Rewards** - From food coupons to premium subscriptions
 - ✅ **Admin Dashboard** - Comprehensive student and reward management
 
+### 🎬 Platform Preview
+
+![CampusWallet Landing Page](assets/screenshots/landing-page.png)
+*Institutional-grade academic rewards platform with blockchain infrastructure*
+
 ---
 
-## 💡 Real-Life Use Cases
+## �️ Screenshots
+
+### Landing Page
+![Landing Page](assets/screenshots/landing-page.png)
+*Modern landing page showcasing 99.9% uptime, instant settlement, and 256-bit encryption*
+
+### Authentication
+![Login Page](assets/screenshots/login-page.png)
+*Secure authentication with beautiful UI and 3D animated background using Vanta.js*
+
+### Student Dashboard
+![Student Dashboard](assets/screenshots/student-dashboard.png)
+*Real-time point balance (316 points) with wallet connection and on-chain tracking*
+
+### Admin Panel - Award Points
+![Admin Award Points](assets/screenshots/admin-award-points.png)
+*Blockchain transaction signatures for transparent point allocation with testnet integration*
+
+---
+
+## �💡 Real-Life Use Cases
 
 ### 🎯 Scenario 1: Academic Participation
 
